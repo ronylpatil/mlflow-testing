@@ -1,0 +1,81 @@
+stages:
+  load_dataset:
+    cmd: python ./src/data/load_dataset.py
+    deps:
+    - ./src/data/load_dataset.py
+    params:
+    - load_dataset.drive_link
+    - load_dataset.raw_data
+    - load_dataset.file_name
+    outs:
+    - .${load_dataset.raw_data}/${load_dataset.file_name}.csv
+
+  make_dataset:
+    cmd: python ./src/data/make_dataset.py
+    deps:
+    - ./src/data/make_dataset.py
+    - .${load_dataset.raw_data}/${load_dataset.file_name}.csv
+    params:
+    - load_dataset.raw_data
+    - load_dataset.file_name
+    - make_dataset.test_split
+    - make_dataset.seed
+    - make_dataset.processed_data
+    - make_dataset.res_seed
+    outs:
+    - .${make_dataset.processed_data}/train.csv
+    - .${make_dataset.processed_data}/test.csv
+
+  build_features:
+    cmd: python ./src/features/build_features.py
+    deps:
+    - ./src/features/build_features.py
+    - .${make_dataset.processed_data}/train.csv
+    - .${make_dataset.processed_data}/test.csv
+    params:
+    - make_dataset.processed_data
+    - build_features.extended_data
+    outs:
+    - .${build_features.extended_data}/extended_train.csv
+    - .${build_features.extended_data}/extended_test.csv
+
+  train_model:
+    cmd: python ./src/models/train_model.py
+    deps:
+    - ./src/models/train_model.py
+    - .${build_features.extended_data}/extended_train.csv
+    - .${build_features.extended_data}/extended_test.csv
+    params:
+    - build_features.extended_data
+    - base.target
+    - train_model.n_estimators
+    - train_model.criterion
+    - train_model.seed
+    - train_model.max_depth
+    - train_model.model_dir
+    outs:
+    - .${train_model.model_dir}/model.joblib
+
+  predict_model:
+    cmd: python ./src/models/predict_model.py
+    deps:
+    - ./src/models/predict_model.py
+    - .${train_model.model_dir}/model.joblib
+    params:
+    - build_features.extended_data
+    - train_model.model_dir
+    - base.target
+
+  visualization:
+    cmd: python ./src/visualization/visualize.py
+    deps:
+    - ./src/visualization/visualize.py
+    - .${train_model.model_dir}/model.joblib
+    params:
+    - build_features.extended_data
+    - train_model.model_dir
+    - base.target
+    outs:
+    - ./plots/
+
+
