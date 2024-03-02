@@ -3,8 +3,7 @@ base:
   target: quality
 
 load_dataset:
-  drive_link: 
-    https://drive.google.com/file/d/1FCVWcNyBX6tFYjfORhnAvIwS8I8zV92j/view?usp=sharing
+  drive_link: https://drive.google.com/file/d/1FCVWcNyBX6tFYjfORhnAvIwS8I8zV92j/view?usp=sharing
   raw_data: /data/raw
   file_name: wineq
 
@@ -18,8 +17,18 @@ build_features:
   extended_data: /data/extended
 
 train_model:
-  n_estimators: 90
+  n_estimators: 100
   criterion: gini
   seed: 43
-  max_depth: 45
+  max_depth: 80
   model_dir: /models
+
+mlflow_config:
+  artifacts_dir: /artifacts/
+  trainingExpName: trainingExperiments
+  testingExpName: testingExperiments
+  reportExpName: reports
+  trainingRunName: training
+  testingRunName: testing
+  registered_model_name: RFC
+  remote_server_uri: http://localhost:5000     # 127.0.0.1

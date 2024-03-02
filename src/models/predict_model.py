@@ -1,8 +1,10 @@
 import pathlib
 import joblib
 import yaml
+import mlflow
 import pandas as pd
 import numpy as np
+from typing import IO, Any
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.base import BaseEstimator
 from sklearn import metrics
@@ -22,27 +24,7 @@ def load_model(model_dir: str) -> BaseEstimator :
           return model
 
 
-def evaluate(x_test: pd.DataFrame, y_test: np.ndarray, model: BaseEstimator) -> None : 
-     # try : 
-     #      y_pred = model.predict(x_test)     # return class
-     #      y_pred_prob = model.predict_proba(x_test)    # return probability
-     #      accuracy = metrics.accuracy_score(y_test, y_pred)
-     #      precision = metrics.precision_score(y_test, y_pred, zero_division = 1, average = 'macro')
-     #      recall = metrics.recall_score(y_test, y_pred, average = 'macro')
-     #      roc_score = metrics.roc_auc_score(y_test, y_pred_prob, average = 'macro', multi_class = 'ovr')
-     #      infologger.info('model evalution done')
-     #      try : 
-     #           with Live(resume = True) as live : 
-     #                live.log_metric('testing/bal_accuracy', float('{:.2f}'.format(accuracy)))
-     #                live.log_metric('testing/roc_score', float('{:.2f}'.format(roc_score)))
-     #                live.log_metric('testing/precision', float("{:.2f}".format(precision)))
-     #                live.log_metric('testing/recall', float("{:.2f}".format(recall)))
-     #           infologger.info('performance metrics tracked by dvclive')
-     #      except Exception as ie : 
-     #           infologger.info(f'there\'s an issue while tracking the performance metrics [check evaluate()]. exc: {ie}')
-     # except Exception as oe : 
-     #      infologger.info(f'there\'s an issue while evalution [check evaluate()]. exc: {oe}')
-
+def evaluate(x_test: pd.DataFrame, y_test: np.ndarray, model: BaseEstimator, yaml_file_obj: IO[Any]) -> None : 
      try : 
           y_pred = model.predict(x_test)     # return class
           y_pred_prob = model.predict_proba(x_test)    # return probability
@@ -59,15 +41,24 @@ def evaluate(x_test: pd.DataFrame, y_test: np.ndarray, model: BaseEstimator) -> 
           else : 
                infologger.info('model evalution done')
                try : 
-                    with Live(resume = True) as live : 
-                         live.log_metric('testing/bal_accuracy', float('{:.2f}'.format(bal_acc)))
-                         live.log_metric('testing/roc_score', float('{:.2f}'.format(roc_score)))
-                         live.log_metric('testing/precision', float("{:.2f}".format(precision)))
-                         live.log_metric('testing/recall', float("{:.2f}".format(recall)))
+                    mlflow_config = yaml_file_obj['mlflow_config']
+                    remote_server_uri = mlflow_config['remote_server_uri']
+                    mlflow.set_tracking_uri(remote_server_uri)
+                    mlflow.set_experiment(mlflow_config['testingExpName'])
+
+                    with mlflow.start_run(run_name = mlflow_config['testingRunName']) : 
+                         mlflow.set_tag('tag', 'v1')
+
+                         mlflow.log_metric('bal_accuracy', float('{:.2f}'.format(bal_acc)))
+                         mlflow.log_metric('roc_score', float('{:.2f}'.format(roc_score)))
+                         mlflow.log_metric('precision', float("{:.2f}".format(precision)))
+                         mlflow.log_metric('recall', float("{:.2f}".format(recall)))
+                         
+
                except Exception as ie : 
-                    infologger.info(f'there\'s an issue while tracking the performance metrics [check evaluate()]. exc: {ie}')
+                    infologger.info(f'there\'s an issue while tracking the testing performance metrics [check evaluate()]. exc: {ie}')
                else :
-                    infologger.info('performance metrics tracked by dvclive')
+                    infologger.info('performance metrics tracked by mlflow')
 
 def main() -> None : 
      curr_dir = pathlib.Path(__file__)
@@ -84,7 +75,7 @@ def main() -> None :
           x_test = test_data.drop(columns = [TARGET]).values
           y_test = test_data[TARGET]
 
-          evaluate(x_test, y_test, load_model(model_dir))
+          evaluate(x_test, y_test, load_model(model_dir), yaml_file_obj = params)
           infologger.info('program terminated normally')
 
 if __name__ == '__main__' :

@@ -1,21 +1,22 @@
 import pathlib
 import yaml
 import joblib
+import mlflow
+import typing
 import numpy as np
 import pandas as pd
-from datetime import datetime
-from dvclive import Live
-from src.logger import infologger
+from mlflow.sklearn import log_model
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import metrics
 from sklearn.base import BaseEstimator
-from typing import Tuple
+from src.logger import infologger
+from src.visualization import visualize
 
 infologger.info('*** Executing: train_model.py ***')
 # writing import after infologger to log the info precisely 
 from src.data.make_dataset import load_data
 
-def train_model(training_feat: pd.DataFrame, y_true: pd.Series, n_estimators: int, criterion: str, max_depth: int, random_state: int) -> Tuple[BaseEstimator, np.ndarray] :
+def train_model(training_feat: np.ndarray, y_true: pd.Series, n_estimators: int, criterion: str, max_depth: int, random_state: int, yaml_file_obj: typing.IO) -> dict :
      try : 
           model = RandomForestClassifier(n_estimators = n_estimators, criterion = criterion, max_depth = max_depth,
                                         random_state = random_state)
@@ -31,22 +32,10 @@ def train_model(training_feat: pd.DataFrame, y_true: pd.Series, n_estimators: in
           recall = metrics.recall_score(y_true, y_pred, average = 'macro')
           roc_score = metrics.roc_auc_score(y_true, y_pred_prob, average = 'macro', multi_class = 'ovr')
 
-          try : 
-               with Live(resume = True) as live : 
-                    live.log_param('n_estimators', n_estimators)
-                    live.log_param('criterion', criterion)
-                    live.log_param('max_depth', max_depth)
-                    live.log_param('random_state', random_state)
-
-                    live.log_metric('training/bal_accuracy', float('{:.2f}'.format(accuracy)))
-                    live.log_metric('training/roc_score', float('{:.2f}'.format(roc_score)))
-                    live.log_metric('training/precision', float("{:.2f}".format(precision)))
-                    live.log_metric('training/recall', float("{:.2f}".format(recall)))
-          except Exception as ie : 
-               infologger.info(f'there\'s an issue while tracking metrics/parameters using dvclive [check train_model()]. exc: {ie}')
-          else : 
-               infologger.info('parameters/metrics tracked by dvclive')
-               return model, y_pred
+          return {'model': model, 'y_pred': y_pred, 'params': {"n_estimator": n_estimators, "criterion": criterion,
+                                                                "max_depth": max_depth, "seed": random_state},
+                    'metrics': {"accuracy": accuracy, "precision": precision, "recall": recall, 
+                                "roc_score": roc_score}}
 
 def save_model(model: BaseEstimator, model_dir: str) -> None : 
      try : 
@@ -60,6 +49,7 @@ def main() -> None :
      curr_path = pathlib.Path(__file__) 
      home_dir = curr_path.parent.parent.parent
      params_loc = f'{home_dir.as_posix()}/params.yaml'
+     plots_dir = f'{home_dir.as_posix()}/reports/figures/training/'
      try : 
           params = yaml.safe_load(open(params_loc, encoding = 'utf8'))
      except Exception as e :
@@ -76,9 +66,28 @@ def main() -> None :
           X_train = data.drop(columns = [TARGET]).values
           Y = data[TARGET]
 
-          model, _ = train_model(X_train, Y, parameters['n_estimators'], parameters['criterion'], parameters['max_depth'],
-                                   parameters['seed'])
-          save_model(model, model_dir)
+          details = train_model(X_train, Y, parameters['n_estimators'], parameters['criterion'], parameters['max_depth'],
+                                  parameters['seed'], yaml_file_obj = params)
+
+          plot_dir = visualize.conf_matrix(Y, details['y_pred'], labels = details['model'].classes_, path = plots_dir, yaml_file_obj = params)
+
+          mlflow_config = params['mlflow_config']
+          remote_server_uri = mlflow_config['remote_server_uri']
+          exp_name = mlflow_config['trainingExpName']
+
+          mlflow.set_tracking_uri(remote_server_uri)
+          mlflow.set_experiment(experiment_name = exp_name)
+          
+          with mlflow.start_run(description = 'training random forest model - by ronil') : 
+               mlflow.log_params({"n_estimator": details['params']['n_estimator'], "criterion": details['params']['criterion'], 
+                                  "max_depth": details['params']['max_depth'], "seed": details['params']['seed']})
+               mlflow.log_metrics({"accuracy": details['metrics']['accuracy'], "precision": details['metrics']['precision'], 
+                                   "recall": details['metrics']['recall'], "roc_score": details['metrics']['roc_score']})
+               log_model(details['model'], "model")
+               mlflow.log_artifact(f'{plot_dir}/confusion_mat.png', 'confusion_matrix')
+               mlflow.set_tags({'author' : 'ronil', 'model': 'random-forest'})
+
+          save_model(details['model'], model_dir)
           infologger.info('program terminated normally!')
 
 if __name__ == '__main__' : 

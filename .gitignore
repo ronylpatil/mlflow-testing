@@ -88,3 +88,9 @@ temp/
 # Mypy cache
 .mypy_cache/
 /plots
+
+# exclude artifacts from source control
+artifacts/
+
+# exclude code-testing file from source control
+testing.py

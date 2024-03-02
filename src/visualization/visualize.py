@@ -1,5 +1,6 @@
 import pathlib
 import yaml
+import typing
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
@@ -14,9 +15,9 @@ from src.data.make_dataset import load_data
 def roc_curve() -> None : 
      pass
 
-def conf_matrix(y_test: pd.Series, y_pred: pd.Series, labels: np.ndarray, path: str) -> None : 
+def conf_matrix(y_test: pd.Series, y_pred: pd.Series, labels: np.ndarray, path: str, yaml_file_obj: typing.IO) -> str : 
      try : 
-          curr_time = datetime.now().strftime('%d%b%y-%H.%M.%S')
+          curr_time = datetime.now().strftime('%d%m%y-%H%M%S')
           dir_path = pathlib.Path(f'{path}/cm_{curr_time}')
           dir_path.mkdir(parents = True, exist_ok = True)
      except Exception as e : 
@@ -32,10 +33,20 @@ def conf_matrix(y_test: pd.Series, y_pred: pd.Series, labels: np.ndarray, path: 
                plt.ylabel('True Label')
                plt.savefig(f'{dir_path}/confusion_mat.png')
                plt.close()
+
+               # mlflow_config = yaml_file_obj['mlflow_config']
+               # remote_server_uri = mlflow_config['remote_server_uri']
+               # mlflow.set_tracking_uri(remote_server_uri)
+               # mlflow.set_experiment(mlflow_config['trainingExpName'])
+
+               # with mlflow.start_run() : 
+               #      mlflow.log_artifact(f'{dir_path}/confusion_mat.png', 'confusion_matrix')
+               
           except Exception as e : 
-               infologger.info(f'there\'s an issue in ploting confusion metrix [check conf_metrix()]. exc: {e}')
+               infologger.info(f'there\'s some issue in ploting confusion metrix [check conf_metrix()]. exc: {e}')
           else :
                infologger.info(f'confusion metrix saved at [{dir_path}]')
+               return dir_path
 
 def main() -> None :
      curr_dir = pathlib.Path(__file__)
@@ -65,7 +76,7 @@ def main() -> None :
           except Exception as e : 
                infologger.info(f'there\'s an issue while prediction [check main()]. exc: {e}')
           else :
-               conf_matrix(y_test, y_pred, labels, dir_path)
+               conf_matrix(y_test, y_pred, labels, dir_path, yaml_file_obj = params)
                infologger.info('program terminated normally!')
                
 if __name__ == '__main__' :
