@@ -78,7 +78,7 @@ def main() -> None :
           mlflow.set_tracking_uri(remote_server_uri)
           mlflow.set_experiment(experiment_name = exp_name)
           # adding experiment description
-          experiment_description = ('Experiment to track the training performace of randomforestclassifier model. Models objective' 
+          experiment_description = ('tracking the model training process of randomforestclassifier. Models objective ' 
                                  'is to predict the winequality.') 
           mlflow.set_experiment_tag("mlflow.note.content", experiment_description)
           
