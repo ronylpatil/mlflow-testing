@@ -49,7 +49,7 @@ def main() -> None :
      curr_path = pathlib.Path(__file__) 
      home_dir = curr_path.parent.parent.parent
      params_loc = f'{home_dir.as_posix()}/params.yaml'
-     plots_dir = f'{home_dir.as_posix()}/reports/figures/training/'
+     plots_dir = f'{home_dir.as_posix()}/plots/training_plots'
      try : 
           params = yaml.safe_load(open(params_loc, encoding = 'utf8'))
      except Exception as e :
@@ -69,7 +69,7 @@ def main() -> None :
           details = train_model(X_train, Y, parameters['n_estimators'], parameters['criterion'], parameters['max_depth'],
                                   parameters['seed'], yaml_file_obj = params)
 
-          plot_dir = visualize.conf_matrix(Y, details['y_pred'], labels = details['model'].classes_, path = plots_dir, yaml_file_obj = params)
+          filename = visualize.conf_matrix(Y, details['y_pred'], labels = details['model'].classes_, path = plots_dir, params_obj = params)
 
           mlflow_config = params['mlflow_config']
           remote_server_uri = mlflow_config['remote_server_uri']
@@ -77,15 +77,20 @@ def main() -> None :
 
           mlflow.set_tracking_uri(remote_server_uri)
           mlflow.set_experiment(experiment_name = exp_name)
+          # adding experiment description
+          experiment_description = ('Experiment to track the training performace of randomforestclassifier model. Models objective' 
+                                 'is to predict the winequality.') 
+          mlflow.set_experiment_tag("mlflow.note.content", experiment_description)
           
+          # runs description
           with mlflow.start_run(description = 'training random forest model - by ronil') : 
                mlflow.log_params({"n_estimator": details['params']['n_estimator'], "criterion": details['params']['criterion'], 
                                   "max_depth": details['params']['max_depth'], "seed": details['params']['seed']})
                mlflow.log_metrics({"accuracy": details['metrics']['accuracy'], "precision": details['metrics']['precision'], 
                                    "recall": details['metrics']['recall'], "roc_score": details['metrics']['roc_score']})
                log_model(details['model'], "model")
-               mlflow.log_artifact(f'{plot_dir}/confusion_mat.png', 'confusion_matrix')
-               mlflow.set_tags({'author' : 'ronil', 'model': 'random-forest'})
+               mlflow.log_artifact(filename, 'confusion_matrix')
+               mlflow.set_tags({'project_name': 'wine-quality', 'author' : 'ronil', 'project_quarter': 'Q1-2024'})
 
           save_model(details['model'], model_dir)
           infologger.info('program terminated normally!')
