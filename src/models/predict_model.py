@@ -18,11 +18,10 @@ def load_model(model_dir: str) -> BaseEstimator :
      try : 
           model = joblib.load(model_dir)
      except Exception as e : 
-          infologger.info(f'there\'s an issue while loading the model from {model_dir} [check load_model()]. exc: {e}')
+          infologger.info(f'exception raised while loading the model from {model_dir} [check load_model()]. exc: {e}')
      else : 
           infologger.info(f'model loaded successfully from {model_dir}')
           return model
-
 
 def evaluate(x_test: pd.DataFrame, y_test: np.ndarray, model: BaseEstimator, yaml_file_obj: IO[Any]) -> None : 
      try : 
@@ -31,34 +30,29 @@ def evaluate(x_test: pd.DataFrame, y_test: np.ndarray, model: BaseEstimator, yam
      except Exception as oe : 
           infologger.info(f'there\'s an issue while prediction [check evaluate()]. exc: {oe}')
      else : 
+          bal_acc = metrics.balanced_accuracy_score(y_test, y_pred)
+          precision = metrics.precision_score(y_test, y_pred, zero_division = 1, average = 'macro')
+          recall = metrics.recall_score(y_test, y_pred, average = 'macro')
+          roc_score = metrics.roc_auc_score(y_test, y_pred_prob, average = 'macro', multi_class = 'ovr')
+
           try : 
-               bal_acc = metrics.balanced_accuracy_score(y_test, y_pred)
-               precision = metrics.precision_score(y_test, y_pred, zero_division = 1, average = 'macro')
-               recall = metrics.recall_score(y_test, y_pred, average = 'macro')
-               roc_score = metrics.roc_auc_score(y_test, y_pred_prob, average = 'macro', multi_class = 'ovr')
-          except Exception as e :
-               infologger.info(f'there\'s an issue while evalution [check evaluate()]. exc: {e}')
-          else : 
-               infologger.info('model evalution done')
-               try : 
-                    mlflow_config = yaml_file_obj['mlflow_config']
-                    remote_server_uri = mlflow_config['remote_server_uri']
-                    mlflow.set_tracking_uri(remote_server_uri)
-                    mlflow.set_experiment(mlflow_config['testingExpName'])
+               mlflow_config = yaml_file_obj['mlflow_config']
+               remote_server_uri = mlflow_config['remote_server_uri']
+               mlflow.set_tracking_uri(remote_server_uri)
+               mlflow.set_experiment(mlflow_config['testingExpName'])
 
-                    with mlflow.start_run(run_name = mlflow_config['testingRunName']) : 
-                         mlflow.set_tag('tag', 'v1')
+               with mlflow.start_run(run_name = mlflow_config['testingRunName']) : 
+                    mlflow.set_tag('tag', 'v1')
+                    mlflow.log_metric('bal_accuracy', float('{:.2f}'.format(bal_acc)))
+                    mlflow.log_metric('roc_score', float('{:.2f}'.format(roc_score)))
+                    mlflow.log_metric('precision', float("{:.2f}".format(precision)))
+                    mlflow.log_metric('recall', float("{:.2f}".format(recall)))
+                    
 
-                         mlflow.log_metric('bal_accuracy', float('{:.2f}'.format(bal_acc)))
-                         mlflow.log_metric('roc_score', float('{:.2f}'.format(roc_score)))
-                         mlflow.log_metric('precision', float("{:.2f}".format(precision)))
-                         mlflow.log_metric('recall', float("{:.2f}".format(recall)))
-                         
-
-               except Exception as ie : 
-                    infologger.info(f'there\'s an issue while tracking the testing performance metrics [check evaluate()]. exc: {ie}')
-               else :
-                    infologger.info('performance metrics tracked by mlflow')
+          except Exception as ie : 
+               infologger.info(f'there\'s an issue while tracking the testing performance metrics [check evaluate()]. exc: {ie}')
+          else :
+               infologger.info('performance metrics tracked by mlflow')
 
 def main() -> None : 
      curr_dir = pathlib.Path(__file__)

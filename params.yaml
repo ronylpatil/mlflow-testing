@@ -24,7 +24,7 @@ train_model:
   model_dir: /models
 
 mlflow_config:
-  artifacts_dir: /artifacts/
+  artifacts_dir: artifacts
   trainingExpName: trainingExperiments
   tunningExpName: tunningExperiments
   testingExpName: testingExperiments

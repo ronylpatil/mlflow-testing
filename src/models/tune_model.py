@@ -27,23 +27,24 @@ def objective(params: dict, yaml_obj: dict, x_train: pd.DataFrame, y_train: pd.S
           infologger.info(f'exception occured while intializing mlflow exp [check objective()]. exc: {e}')
      else :
           try : 
+
+               model = RandomForestClassifier(**params)
+               model.fit(x_train, y_train)
+               y_pred = model.predict(x_test)
+               y_pred_prob = model.predict_proba(x_test)
+               
+               accuracy = metrics.balanced_accuracy_score(y_test, y_pred)
+               precision = metrics.precision_score(y_test, y_pred, zero_division = 1, average = 'macro')
+               recall = metrics.recall_score(y_test, y_pred, average = 'macro')
+               roc_score = metrics.roc_auc_score(y_test, y_pred_prob, average = 'macro', multi_class = 'ovr')
+
                with mlflow.start_run(description = 'tunning random forest model using hyperopt optimization technique') :
                     mlflow.set_tags({'project_name': 'wine-quality', 'author' : 'ronil', 'project_quarter': 'Q1-2024'})
                     mlflow.log_params(params)
-                    
-                    model = RandomForestClassifier(**params)
-                    model.fit(x_train, y_train)
-
-                    y_pred = model.predict(x_test)
-                    y_pred_prob = model.predict_proba(x_test)
-                    accuracy = metrics.balanced_accuracy_score(y_test, y_pred)
-                    precision = metrics.precision_score(y_test, y_pred, zero_division = 1, average = 'macro')
-                    recall = metrics.recall_score(y_test, y_pred, average = 'macro')
-                    roc_score = metrics.roc_auc_score(y_test, y_pred_prob, average = 'macro', multi_class = 'ovr')
-
                     filename = visualize.conf_matrix(y_test, y_pred, model.classes_, path = plots_dir, params_obj = yaml_obj)
                     mlflow.log_artifact(filename, 'confusion_matrix')
                     mlflow.log_metrics({"accuracy": accuracy, "precision": precision, "recall": recall, "roc_score": roc_score})
+                    mlflow.sklearn.log_model(model, 'model')
           except Exception as e :
                infologger.info(f'got exception while tracking exeriments [check objective()]. exc: {e}')
           else :
@@ -78,13 +79,14 @@ def main() -> None :
                      'criterion': hp.choice('criterion', ['gini', 'entropy']),
                      'max_depth': hp.randint('max_depth', 100 - 5) + 5,
                      'min_samples_split': hp.randint('min_samples_split', 100 - 5) + 5,
-                     'min_samples_leaf': hp.randint('min_samples_leaf', 100 - 5) + 5 }
+                     'min_samples_leaf': hp.randint('min_samples_leaf', 100 - 10) + 10 }
      try : 
           best_result = fmin(fn = partial_obj,
                               space = search_space,
                               algo = tpe.suggest,
-                              max_evals = 1,
+                              max_evals = 20,
                               trials = Trials())
+
      except Exception as e :
           infologger.info(f'exception raised while tunning model using hyperopt [check main()]. exc: {e}')
      else :
@@ -94,3 +96,14 @@ if __name__ == '__main__' :
      main()
      infologger.info('tune_model.py as __main__')
 
+
+
+# mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./artifacts --host 0.0.0.0 -p 1234
+
+# UserWarning: Distutils was imported before Setuptools, but importing Setuptools also replaces the `distutils` module
+               #  in `sys.modules`. This may lead to undesirable behaviors or errors. To avoid these issues, avoid 
+               #  using distutils directly, ensure that setuptools is installed in the traditional way (e.g. not an 
+               # editable install), and/or make sure that setuptools is always imported before distutils.
+# Solution : So I simply deleted the _distutils_hack and distutils-precedence.pth from the site-packages directory.
+             # So far so good, though ymmv! My best guess is that those are left behind from some older version of 
+             # setuptools and are not removed when setuptools is updated.
