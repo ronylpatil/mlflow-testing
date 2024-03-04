@@ -94,3 +94,5 @@ artifacts/
 
 # exclude code-testing file from source control
 testing.py
+
+mlruns/

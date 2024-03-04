@@ -16,10 +16,10 @@ infologger.info('*** Executing: train_model.py ***')
 # writing import after infologger to log the info precisely 
 from src.data.make_dataset import load_data
 
-def train_model(training_feat: np.ndarray, y_true: pd.Series, n_estimators: int, criterion: str, max_depth: int, random_state: int, yaml_file_obj: typing.IO) -> dict :
+def train_model(training_feat: np.ndarray, y_true: pd.Series, n_estimators: int, criterion: str, max_depth: int, min_samples_split: int, min_samples_leaf: int, random_state: int, yaml_file_obj: typing.IO) -> dict :
      try : 
-          model = RandomForestClassifier(n_estimators = n_estimators, criterion = criterion, max_depth = max_depth,
-                                        random_state = random_state)
+          model = RandomForestClassifier(n_estimators = n_estimators, criterion = criterion, max_depth = max_depth, min_samples_split = min_samples_split,
+                                         min_samples_leaf = min_samples_leaf, random_state = random_state)
           model.fit(training_feat, y_true)
      except Exception as e :
           infologger.info(f'there\'s an issue while training model [check train_model()]. exc: {e}')
@@ -90,7 +90,7 @@ def main() -> None :
                                    "recall": details['metrics']['recall'], "roc_score": details['metrics']['roc_score']})
                log_model(details['model'], "model")
                mlflow.log_artifact(filename, 'confusion_matrix')
-               mlflow.set_tags({'project_name': 'wine-quality', 'author' : 'ronil', 'project_quarter': 'Q1-2024'})
+               mlflow.set_tags({'project_name': 'wine-quality', 'project_quarter': 'Q1-2024'})
 
           save_model(details['model'], model_dir)
           infologger.info('program terminated normally!')

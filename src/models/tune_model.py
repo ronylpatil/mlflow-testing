@@ -4,6 +4,7 @@ import pathlib
 import pandas as pd
 from sklearn import metrics
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 from hyperopt.pyll import scope
 from src.data.make_dataset import load_data
@@ -69,6 +70,9 @@ def main() -> None :
      x_test = test_data.drop(columns = [TARGET]).values
      y_test = test_data[TARGET]
 
+     # train-test split
+     # x_train, x_test, y_train, y_test = train_test_split(x, y, test_size = params['model_tunning']['split'], random_state = params['model_tunning']['seed'])
+
      # hyperopt
      additional_params = {'yaml_obj': params, 'x_train': x_train, 'y_train': y_train, 'x_test': x_test, 'y_test': y_test,
                          'plots_dir': cm_dir}
@@ -84,7 +88,7 @@ def main() -> None :
           best_result = fmin(fn = partial_obj,
                               space = search_space,
                               algo = tpe.suggest,
-                              max_evals = 20,
+                              max_evals = 50,
                               trials = Trials())
 
      except Exception as e :
