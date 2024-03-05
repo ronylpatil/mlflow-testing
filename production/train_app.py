@@ -83,7 +83,7 @@ def existing_exp(exp_name, run_desc, n_est, crit, maxd, mss, msl) -> float :
 
 def open_mlflow_ui() -> None :
 #     cmd = "mlflow ui --port 5050"
-    cmd = 'mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./artifacts --host localhost -p 5050'
+    cmd = 'mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./artifacts --host localhost -p 5000'
     sp.Popen(cmd, shell = True)
 
 def open_browser(url) -> None :
@@ -105,8 +105,8 @@ c = st.sidebar.selectbox('Criterion', ['gini', 'entropy', 'log_loss'], index = 1
 st.sidebar.title('Mlflow Tracking 🔎')  
 if st.sidebar.button('Launch 🚀') :
     open_mlflow_ui()
-    st.sidebar.success('Server is live [here](http://localhost:5050)', icon = '🔥')
-    open_browser("http://localhost:5050")
+    st.sidebar.success('Server is live [here](http://localhost:5000)', icon = '🔥')
+    open_browser("http://localhost:5000")
 
 # Main Page Content
 st.title('WineQ Prediction Model Trainer')
@@ -130,18 +130,16 @@ else :
 
 # Training the model starts from here    
 if st.button('Train ⚙️') :
-     if exp_type == 'New Experiment' : 
-          if exp_name and exp_des and run_desc :
-               with st.spinner('Training the model...') :
-                    acc = new_experiment(exp_name, exp_des, run_desc, n_est = n, crit = c, maxd = d, mss = mss, msl = msl)
-               st.success(f'Training Accuracy Achieved {(acc * 100):.3f}%')
-          else : 
-               st.warning('Please ensure all obligatory fields are filled')
-     else :
-          if exp_name and run_desc : 
-               with st.spinner('Training the model...') :
-                    acc = existing_exp(exp_name, run_desc, n_est = n, crit = c, maxd = d, mss = mss, msl = msl)
-               st.success(f'Training Accuracy Achieved {(acc * 100):.3f}%') 
-          else : 
-               st.warning('Please ensure all obligatory fields are filled')
+     if exp_type == 'New Experiment' and exp_name and exp_des and run_desc :
+          with st.spinner('Training the model...') :
+               acc = new_experiment(exp_name, exp_des, run_desc, n_est = n, crit = c, maxd = d, mss = mss, msl = msl)
+          st.success(f'Training Accuracy Achieved {(acc * 100):.3f}%')
+     elif exp_type == 'Existing Experiment' and exp_name and run_desc : 
+          with st.spinner('Training the model...') :
+               acc = existing_exp(exp_name, run_desc, n_est = n, crit = c, maxd = d, mss = mss, msl = msl)
+          st.success(f'Training Accuracy Achieved {(acc * 100):.3f}%') 
+     else : 
+          st.warning('Please ensure all obligatory fields are filled') 
+     
 
+# cmd: streamlit run ./production/train_app.py
