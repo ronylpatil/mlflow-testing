@@ -102,7 +102,7 @@ if __name__ == '__main__' :
 
 
 
-# mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./artifacts --host 0.0.0.0 -p 1234
+# mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./artifacts --host localhost -p 5000
 
 # UserWarning: Distutils was imported before Setuptools, but importing Setuptools also replaces the `distutils` module
                #  in `sys.modules`. This may lead to undesirable behaviors or errors. To avoid these issues, avoid 
